@@ -1,0 +1,231 @@
+\documentclass{article}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{stmaryrd}
+\usepackage{mathtools}
+\usepackage{color}
+\usepackage{mathpartir}
+\usepackage{fullpage}
+
+\newcommand{\btrue}{\mathit{true}}
+\newcommand{\bfalse}{\mathit{false}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% PROC %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newcommand{\pdone}{\mathit{done}}
+\newcommand{\pmake}[2]{\mathit{mk}~#1 \{  #2 \}}
+\newcommand{\psend}[3]{#1 \Rightarrow #2; #3}
+\newcommand{\precv}[3]{#1 \Leftarrow #2; #3}
+\newcommand{\pcond}[2]{\left[ #1 \right] #2}
+\newcommand{\pplus}[2]{#1 + #2}
+\newcommand{\pparl}[2]{#1 | #2}
+
+\newcommand{\ltran}[1]{\overset{#1}{\longrightarrow}}
+\newcommand{\sendt}[2]{\overset{#1, #2}{\longrightarrow}}
+\newcommand{\recvt}[2]{\overset{\bar{#1}, #2}{\longrightarrow}}
+
+\title{Takehome Final, Written Problems}
+\author{CS 538, Spring 2020}
+
+\begin{document}
+
+\maketitle
+
+\newcommand*{\Tr}{\mathit{true}}
+\newcommand*{\Fa}{\mathit{false}}
+
+In this problem, we will be adding basic exceptions to the core functional
+language we saw in the first half of the course. The core language is a lambda
+calculus with booleans, integers, and strings:
+%
+\begin{align*}
+  \text{Num } n &::= \mathbb{N}
+  \\
+  \text{Str } s &::= \text{``letters''}
+  \\
+  \text{Val } v &::= x
+    \mid \lambda x.~e
+    \mid \Tr
+    \mid \Fa
+    \mid n
+    \mid s
+  \\
+  \text{Exp } e &::= x
+    \mid \lambda x.~e
+    \mid e_1~e_2
+    \mid \Tr
+    \mid \Fa
+    \mid n
+    \mid s
+    \mid \mathit{if}~e_1~\mathit{then}~e_2~\mathit{else}~e_3
+    \mid e_1 = e_2
+    \mid e_1 + e_2
+\end{align*}
+%
+In words, we have the following components:
+%
+\begin{itemize}
+  \item Numbers $n$ ($0$, $1$, \dots)
+  \item Strings $s$ (``foo'', ``bar'', \dots)
+  \item Variables $x$
+  \item Values $v$ ($42$, ``foo'', $\lambda x.~x + 1$, \dots)
+  \item Expressions $e$ ($x + 0$, $3 \times 5$, \dots)
+\end{itemize}
+%
+The language is eager (call-by-value), with the following operational semantics:
+%
+\begin{mathpar}
+  \inferrule
+  { e_1 \to e_1' }
+  { e_1~e_2 \to e_1'~e_2 }
+  \and
+  \inferrule
+  { e_2 \to e_2' }
+  { (\lambda x.~e_1)~e_2 \to (\lambda x.~e_1)~e_2' }
+  \and
+  \inferrule
+  { }
+  { (\lambda x.~e)~v \to e[x \mapsto v] }
+  \\
+{
+  \inferrule
+  { e_1 \to e_1' }
+  { \mathit{if}~e_1~\mathit{then}~e_2~\mathit{else}~e_3
+  \to \mathit{if}~e_1'~\mathit{then}~e_2~\mathit{else}~e_3 }
+  \and
+  \inferrule
+  {~}
+  { \mathit{if}~\Tr~\mathit{then}~e_2~\mathit{else}~e_3 \to e_2 }
+  \and
+  \inferrule
+  {~}
+  { \mathit{if}~\Fa~\mathit{then}~e_2~\mathit{else}~e_3 \to e_3 }
+}
+  \\
+  \inferrule
+  { e_1 \to e_1' }
+  { e_1 = e_2 \to e_1' = e_2 }
+  \and
+  \inferrule
+  { e_2 \to e_2' }
+  { v_1 = e_2 \to v_1 = e_2' }
+  \and
+  \inferrule
+  { v_1 \text{ is equal to } v_2 }
+  { v_1 = v_2 \to \Tr }
+  \and
+  \inferrule
+  { v_1 \text{ is not equal to } v_2 }
+  { v_1 = v_2 \to \Fa }
+  \\
+  \inferrule
+  { e_1 \to e_1' }
+  { e_1 + e_2 \to e_1' + e_2 }
+  \and
+  \inferrule
+  { e_2 \to e_2' }
+  { v_1 + e_2 \to v_1 + e_2' }
+  \and
+  \inferrule
+  { n = n_1 \text{ plus } n_2 }
+  { n_1 + n_2 \to n }
+\end{mathpar}
+
+\section{Raising exceptions}
+
+To raise exceptions, we add a new expression:
+%
+\[
+  \text{Exp } e ::= \mathit{raise}(s) \mid \cdots
+\]
+%
+The expression $\mathit{raise}(s)$ is an exception, and the string $s$ describes
+the kind of exception. If we hit an exception during evaluation, then we don't
+evaluate the rest of the expression---we just step to the exception. We can
+model this behavior using the following operational rules:
+%
+\begin{mathpar}
+  \inferrule
+  {~}
+  { \mathit{raise}(s)~e \to \mathit{raise}(s) } 
+  \and
+  \inferrule
+  { }
+  { (\lambda x.~e)~\mathit{raise}(s) \to \mathit{raise}(s) }
+  \and
+  \inferrule
+  {~}
+  { \mathit{if}~\mathit{raise}(s)~\mathit{then}~e_2~\mathit{else}~e_3 \to \mathit{raise}(s) }
+  \and
+  \inferrule
+  {~}
+  { \mathit{raise}(s) = e \to \mathit{raise}(s) }
+  \and
+  \inferrule
+  {~}
+  { v = \mathit{raise}(s) \to \mathit{raise}(s) }
+\end{mathpar}
+%
+Answer the following questions.
+%
+\begin{enumerate}
+  \item Write down similar rules for raising exceptions from $e_1 + e_2$. Hint:
+    you should have two new rules, almost the same as the new rules for equality.
+  \item Write a (lambda calculus) function that takes two arguments $x$ and $y$.
+    If $x$ is equal to $42$ then raise the exception
+    $\mathit{raise}(\text{``1st 42''})$, otherwise if $y$ is equal to $21$ then
+    raise the exception $\mathit{raise}(\text{``2nd 21''})$, otherwise return
+    the sum of $x$ and $y$.
+\end{enumerate}
+
+\section{Handling exceptions}
+
+Most languages with exceptions also have exception handlers, which are used to
+recover and run error-handling code when an exception is raised. We add the
+following expression to our language:
+%
+\[
+  \text{Exp } e ::= \mathit{try}~e_1~\mathit{with}~e_2 \mid \cdots
+\]
+%
+The idea is that $e_1$ is a piece of code that may raise an exception, and $e_2$
+is a function that takes a string describing the exception, and then does
+something (handles it). If $e_1$ doesn't raise an exception, then $e_2$ is never
+run.
+
+To model this behavior, we add the following step rules:
+%
+\begin{mathpar}
+  \inferrule
+  { e_1 \to e_1' }
+  { \mathit{try}~e_1~\mathit{with}~e_2 \to \mathit{try}~e_1'~\mathit{with}~e_2 } 
+  \and
+  \inferrule
+  {~}
+  { \mathit{try}~\mathit{raise}(s)~\mathit{with}~e \to e~s }
+  \and
+  \inferrule
+  {~}
+  { \mathit{try}~v~\mathit{with}~e \to v }
+\end{mathpar}
+%
+We have carefully ensured that $\mathit{raise}(s)$ is \emph{not} a regular value
+$v$, so the last two rules do not overlap.
+
+Answer the following questions.
+%
+\begin{enumerate}
+  \item Suppose that $\mathit{foo}$ is a piece of code. Write a program that
+    runs $\mathit{foo}$, handles an exception if it is labeled $\text{``1st
+    42''}$ by returning $0$, otherwise re-raises the exception. (Your answer
+    should include ``$\mathit{foo}$'' somewhere. You do not need to show how
+    this program steps.)
+  \item Show how your previous answer steps when $\mathit{foo}$ is equal to
+    $(\lambda x.~\mathit{if}~x = 0~\mathit{then}~\mathit{raise}(\text{``1st
+    42''})~\mathit{else}~\mathit{raise}(\text{``2nd 21''}))~0$.
+  \item Show how your previous answer steps when $\mathit{foo}$ is equal to
+    $(\lambda x.~\mathit{if}~x = 0~\mathit{then}~\mathit{raise}(\text{``1st
+    42''})~\mathit{else}~\mathit{raise}(\text{``2nd 21''}))~1$.
+\end{enumerate}
+
+\end{document}
